@@ -2,13 +2,25 @@
 # -*- coding: utf8 -*-
 CONFIG = {
     'YOLO_MODEL_PATH': './model/qqfarm-9.pt',
-    'Watering': './static/water.png',
-    'LandSwitch': './static/switch.png',
-    'Weeding': './static/weeding.png',
-    'Deinsectzation': './static/deinsectzation.png',
-    'Harvest': './static/harvest.png',
-    'ExitGame': './static/exit_game.png',
-    'Reconnect': './static/reconnect.png',
+    'Watering': './static/water.png',                   # 浇水
+    'LandSwitch': './static/switch.png',                # 土地 - 切换
+    'SeedEradicate': './static/eradicate.png',          # 土地 - 铲除
+    'Weeding': './static/weeding.png',                  # 除草
+    'Deinsectzation': './static/deinsectzation.png',    # 除虫
+    'Harvest': './static/harvest.png',                  # 收获
+    'ExitGame': './static/exitGame.png',                # 退出游戏
+    'Reconnect': './static/reconnect.png',              # 重新连接
+    'CancelShare': './static/cancelShare.png',          # 取消分享
+    'SeedType1': './static/seed1.png',                  # 种子左上角的数字边框样式1
+    'SeedType2': './static/seed2.png',                  # 种子左上角的数字边框样式2
+    'SeedType3': './static/seed3.png',                  # 种子左上角的数字边框样式3
+    'TaskReceiveReward': './static/taskReceiveReward.png',  # 任务 - 领取
+    'TaskShareReward': './static/taskShareReward.png',      # 任务 - 领取 - 分享
+    'TaskNormalReceiveReward': './static/taskNormalReceiveReward.png',  # 任务 - 领取 - 直接领取
+    'storeSeedlocked': './static/seedLock.png', # 商店 - 种子 - 未解锁 样式1
+    'storeSeedlocked2': './static/seedLock2.png', # 商店 - 种子 - 未解锁 样式2
+    'storeSeedUnlocked': './static/seedUnlock.png', # 商店 - 种子 - 已解锁
+
     'mainscene': {
         'warehuse':{
             'x': 55,
@@ -96,28 +108,6 @@ CONFIG = {
             (39, 324)   # 随便写的，后面改
         ]
     },
-    'action': {
-        'watering': {
-            'x': 0,
-            'y': 0,
-            'name': '浇水',
-        },
-        'weeding': {
-            'x': 0,
-            'y': 0,
-            'name': '除草',
-        },
-        'deinsectzation': {
-            'x': 0,
-            'y': 0,
-            'name': '灭虫',
-        },
-        'harvest': {
-            'x': 0,
-            'y': 0,
-            'name': '收获',
-        },
-    },
     'land': [
         # x, y, 映射x1, 映射y1, 类型, 土地颜色检测区域（x2, y2, x3, y3）
         #   类型 0: 未开发 1: 普通 2: 红土地 3: 黑土地 4: 金土地 5:
@@ -165,7 +155,7 @@ CONFIG = {
         'share_reward',     # 任务 - 分享领取
         'normal_reward',    # 任务 - 直接领取
     ],
-    'commonClick': (290, 165),
+    'commonClick': (270, 78),
     'purchase_seed': (257, 611),     # 购买种子
     'close_store': (447, 130),
 }

@@ -49,3 +49,31 @@ def remove_duplicate_matches(matches, distance_threshold=10):
             unique_matches.append(match)
 
     return unique_matches
+
+def analyze_match_positions(matches):
+    """
+    分析匹配结果的位置分布
+    :param matches: 匹配结果列表
+    :return: 统计信息字典
+    """
+    if not matches:
+        return None
+
+    # 提取y坐标
+    y_coords = [match['relative_position'][1] for match in matches]
+
+    # 去重并排序
+    unique_y = sorted(list(set(y_coords)))
+
+    # 统计每个y坐标的出现次数
+    from collections import Counter
+    y_counts = Counter(y_coords)
+
+    return {
+        'total_matches': len(matches),
+        'unique_y_count': len(unique_y),
+        'unique_y_values': unique_y,
+        'min_y': min(unique_y),
+        'max_y': max(unique_y),
+        'y_distribution': dict(sorted(y_counts.items()))
+    }

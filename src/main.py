@@ -6,15 +6,15 @@ from base import Base
 from action import AutoClick
 from config import CONFIG
 from detector import RedDotDetector
-from vision import YoloVision
-from mapping import Target
-from utils import remove_duplicate_matches
+# from vision import YoloVision
+# from mapping import Target
+from utils import remove_duplicate_matches, analyze_match_positions
 
 
 class BotVision(Base):
     def __init__(self, window_title: str):
         super().__init__(window_title)
-        self.yolo: YoloVision | None = None
+        # self.yolo: YoloVision | None = None
         self.clicker = AutoClick()
         self.reddot_detector = RedDotDetector(runner=self)
         self.last_click_time = 0
@@ -24,12 +24,28 @@ class BotVision(Base):
         self.last_click_button = 'left'
         self.last_click_success = False
 
-    def common_click(self):
+    def common_click(self, x=None, y=None):
         """无效点击"""
-        time.sleep(1)
-        cx, cy = CONFIG['commonClick']
+        time.sleep(2)
+        if x is None or y is None:
+            cx, cy = CONFIG['commonClick']
+        else:
+            cx, cy = x, y
         offset = random.randint(-10, 10)
         self.clicker.click(self.hwnd, cx + offset, cy)
+
+    def cancel_share(self):
+        """取消分享"""
+        image = self.capture_full_screen()
+        cancel_locations = self.reddot_detector.detect_template_in_image(
+            template_img=CONFIG['CancelShare'],
+            target_img=image,
+        )
+        if cancel_locations:
+            time.sleep(1)
+            self.clicker.click(self.hwnd, *cancel_locations[0]['relative_position'])
+            time.sleep(1)
+        self.common_click()
 
     def get_share_reward(self):
         """获取分享每日奖励"""
@@ -42,6 +58,8 @@ class BotVision(Base):
         reward_x, reward_y = CONFIG['reward']['share'][1]
         self.clicker.click(self.hwnd, reward_x, reward_y)
         time.sleep(2)
+        # 取消分享
+        self.cancel_share()
         # esc关闭分享
         self.clicker.send_key(self.hwnd, 'VK_ESCAPE')
         self.common_click()
@@ -84,39 +102,33 @@ class BotVision(Base):
                 self.logger.error("任务 - 截图图片失败")
                 return
             try:
-                targets = self.yolo.detect_specific_target(
-                    [
-                        Target.RECEIVE.value,
-                        Target.SHARE_REWARD.value,
-                        Target.NORMAL_REWARD.value,
-                    ],
-                    image,
+                ReceiveRewardLocations = self.reddot_detector.detect_template_in_image(
+                    template_img=CONFIG['taskReceiveReward'],
+                    target_img=image,
                 )
             except Exception as e:
                 self.logger.error(f'检测失败： {e}')
                 continue
-            receive_targets = [target for target in targets
-                               if target['class_name'] == Target.RECEIVE.value]
-            if receive_targets:
-                self.clicker.click(self.hwnd, *receive_targets[0]['screen_position'])
-                self.common_click()
-
-            share_targets = [target for target in targets
-                               if target['class_name'] == Target.SHARE_REWARD.value]
-            if share_targets:
-                self.clicker.click(self.hwnd, *share_targets[0]['screen_position'])
-                time.sleep(2)
-                # ESC
-                self.clicker.send_key(self.hwnd, 'VK_ESCAPE')
-                self.common_click()
-
-            normal_targets = [target for target in targets
-                               if target['class_name'] == Target.NORMAL_REWARD.value]
-            if normal_targets:
-                self.clicker.click(self.hwnd, *normal_targets[0]['screen_position'])
-                self.common_click()
-            if not targets:
+            # 任务中无奖励可领取
+            if not ReceiveRewardLocations:
                 break
+            # 点击领取奖励
+            self.clicker.click(self.hwnd, *ReceiveRewardLocations[0]['screen_position'])
+            time.sleep(1)
+            image = self.capture_window_printwindow()
+            shareRewardLocations = self.reddot_detector.detect_template_in_image(
+                template_img=CONFIG['TaskShareReward'],
+                target_img=image,
+            )
+            # 主任务： 分享/直接领取
+            if shareRewardLocations:
+                self.clicker.click(self.hwnd, *shareRewardLocations[0]['screen_position'])
+                time.sleep(2)
+                self.cancel_share()
+        # 关闭任务窗口
+        time.sleep(1)
+        self.clicker.click(self.hwnd, *CONFIG['reward']['task'][2])
+        self.common_click()
 
     def get_menu_reward(self):
         """获取菜单奖励"""
@@ -190,41 +202,66 @@ class BotVision(Base):
         )
         time.sleep(2)
         image = self.capture_window_printwindow()
-        detected_targets = self.yolo.detect_specific_target(
-            [
-                Target.LOCK.value,
-                Target.UNLOCK.value,
-            ],
-            image,
+        # 检测未解锁标志
+        lock_locations = self.reddot_detector.detect_template_in_image(
+            template_img=CONFIG['storeSeedlocked'],
+            target_img=image,
         )
-        valid_targets = [t for t in detected_targets if t['class_name'] != 'lock']
-        sorted_targets = sorted(valid_targets,
-                                key=lambda t: (t['screen_position'][1], t['screen_position'][0]),
-                                reverse=True)
+        if lock_locations:
+            sorted_targets = sorted(
+                lock_locations,
+                key=lambda t: (t['relative_position'][1], t['relative_position'][0]),
+                reverse=True
+            )
+            lock_analyze_result = analyze_match_positions(sorted_targets)
+            min_y = lock_analyze_result['min_y']
+            min_y_count = lock_analyze_result['y_distribution'][min_y]
+            if min_y_count == 4:
+                x = sorted_targets[-1]['relative_position'][0] + 100 * 3
+                new_seed = {
+                    'relative_position': (x, min_y - 95)
+                }
+            elif 0 < min_y_count < 4:
+                x = sorted_targets[-1]['relative_position'][0] - 100
+                new_seed = {
+                    'relative_position': (x, min_y)
+                }
+            else:
+                new_seed = {
+                    'relative_position': (208, 432)
+                }
+        else:
+            unlock_locations = self.reddot_detector.detect_template_in_image(
+                template_img=CONFIG['storeSeedUnlocked'],
+                target_img=image,
+            )
+            if not unlock_locations:
+                self.logger.warning('未检测到可购买的种子')
+                return
+            new_seed = unlock_locations[0]
 
-        new_seed = sorted_targets[0]
         # 点击种子触发出来购买按钮
-        self.clicker.click(self.hwnd, *new_seed['screen_position'])
+        self.clicker.click(self.hwnd, *new_seed['relative_position'])
         time.sleep(2)
         # 购买种子
         self.clicker.click(self.hwnd, *CONFIG['purchase_seed'])
         time.sleep(2)
         # 关闭商店
         self.clicker.click(self.hwnd, *CONFIG['close_store'])
-        self.logger.info(f"获取新种子完成，坐标: {new_seed['screen_position']}")
+        self.logger.info(f"获取新种子完成，坐标: {new_seed['relative_position']}")
 
     def get_seed_locations(self, image):
         """获取已有种子坐标"""
         seed1_locations = self.reddot_detector.detect_template_in_image(
-            template_img='./static/seed1.png',
+            template_img=CONFIG['SeedType1'],
             target_img=image
         )
         seed2_locations = self.reddot_detector.detect_template_in_image(
-            template_img='./static/seed1.png',
+            template_img=CONFIG['SeedType2'],
             target_img=image
         )
         seed3_locations = self.reddot_detector.detect_template_in_image(
-            template_img='./static/seed1.png',
+            template_img=CONFIG['SeedType3'],
             target_img=image
         )
         seed_locations = remove_duplicate_matches(
@@ -243,7 +280,11 @@ class BotVision(Base):
                     template_img=CONFIG['LandSwitch'],
                     target_img=image
                 )
-                if switch_locations:
+                eradicate_loctions = self.reddot_detector.detect_template_in_image(
+                    template_img=CONFIG['SeedEradicate'],
+                    target_img=image
+                )
+                if switch_locations or eradicate_loctions:
                     continue
                 time.sleep(1)
                 seed_locations = self.get_seed_locations(image)
@@ -266,8 +307,8 @@ class BotVision(Base):
                     self.clicker.click(self.hwnd, x1, y1)
             except Exception as e:
                 self.logger.error(f'播种失败: ({x, y}) - {e}')
-        self.common_click()
         self.logger.info('土地巡检结束。。。')
+        self.common_click(276, 143)
 
     def start_xxx_action(self, actions, image):
         """
@@ -285,6 +326,7 @@ class BotVision(Base):
                 self.clicker.click(self.hwnd, *locations[0]['relative_position'])
             time.sleep(0.5)
             if action == 'Harvest' and locations:
+                print(locations)
                 self.common_click()
                 # 重新巡检
                 self.start_sowing()
@@ -318,14 +360,13 @@ def run():
         bot_vision.logger.error("初始化失败")
         return
 
-    bot_vision.yolo = YoloVision(CONFIG['YOLO_MODEL_PATH'], bot_vision.window_offset)
-
     time.sleep(2)
     bot_vision.scroll_min_window()
     time.sleep(2)
     bot_vision.get_daily_reward()
     time.sleep(1)
     bot_vision.loop()
+    # bot_vision.get_new_seed()
 
 
 if __name__ == '__main__':

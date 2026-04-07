@@ -14,7 +14,6 @@ dependencies = [
     "pywin32>=311",
     "requests>=2.33.1",
     "setuptools>=82.0.1",
-    "ultralytics>=8.4.33",
     "wheel>=0.46.3",
 ]
 
