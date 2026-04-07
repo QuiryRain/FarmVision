@@ -200,6 +200,7 @@ class Base(object):
                 (bmpinfo['bmWidth'], bmpinfo['bmHeight']),
                 bmpstr, 'raw', 'BGRX', 0, 1
             )
+            im.save('captured_image.png')
 
             # 清理资源
             win32gui.DeleteObject(saveBitMap.GetHandle())

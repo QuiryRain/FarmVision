@@ -2,8 +2,11 @@
 # -*- coding: utf8 -*-
 import time
 import random
+# import pyautogui
+import win32gui
+
 from base import Base
-from action import AutoClick
+from action import AutoClick, click_with_sendinput
 from config import CONFIG
 from detector import RedDotDetector
 # from vision import YoloVision
@@ -43,7 +46,9 @@ class BotVision(Base):
         )
         if cancel_locations:
             time.sleep(1)
-            self.clicker.click(self.hwnd, *cancel_locations[0]['relative_position'])
+            x, y = cancel_locations[0]['relative_position']
+            hwnd = win32gui.GetDesktopWindow()
+            click_with_sendinput(hwnd, x, y + 20)
             time.sleep(1)
         self.common_click()
 
@@ -100,20 +105,20 @@ class BotVision(Base):
             image = self.capture_window_printwindow()
             if not image:
                 self.logger.error("任务 - 截图图片失败")
-                return
+                break
             try:
                 ReceiveRewardLocations = self.reddot_detector.detect_template_in_image(
-                    template_img=CONFIG['taskReceiveReward'],
+                    template_img=CONFIG['TaskReceiveReward'],
                     target_img=image,
                 )
             except Exception as e:
-                self.logger.error(f'检测失败： {e}')
+                self.logger.error(f'检测失败： {e}', exc_info=True)
                 continue
             # 任务中无奖励可领取
             if not ReceiveRewardLocations:
                 break
             # 点击领取奖励
-            self.clicker.click(self.hwnd, *ReceiveRewardLocations[0]['screen_position'])
+            self.clicker.click(self.hwnd, *ReceiveRewardLocations[0]['relative_position'])
             time.sleep(1)
             image = self.capture_window_printwindow()
             shareRewardLocations = self.reddot_detector.detect_template_in_image(
@@ -122,7 +127,7 @@ class BotVision(Base):
             )
             # 主任务： 分享/直接领取
             if shareRewardLocations:
-                self.clicker.click(self.hwnd, *shareRewardLocations[0]['screen_position'])
+                self.clicker.click(self.hwnd, *shareRewardLocations[0]['relative_position'])
                 time.sleep(2)
                 self.cancel_share()
         # 关闭任务窗口
@@ -337,6 +342,7 @@ class BotVision(Base):
             'last_time': time.time()
         }
         while True:
+            self.get_daily_reward()
             t = time.time() - land_loop['last_time']
             if t > land_loop['threshold'] or t < 1:
                 land_loop['last_time'] = time.time()

@@ -10,7 +10,7 @@ CONFIG = {
     'Harvest': './static/harvest.png',                  # 收获
     'ExitGame': './static/exitGame.png',                # 退出游戏
     'Reconnect': './static/reconnect.png',              # 重新连接
-    'CancelShare': './static/cancelShare.png',          # 取消分享
+    'CancelShare': './static/cancelShare2.png',          # 取消分享
     'SeedType1': './static/seed1.png',                  # 种子左上角的数字边框样式1
     'SeedType2': './static/seed2.png',                  # 种子左上角的数字边框样式2
     'SeedType3': './static/seed3.png',                  # 种子左上角的数字边框样式3

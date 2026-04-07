@@ -5,6 +5,8 @@ import time
 import win32gui
 import win32api
 import win32con
+import ctypes
+from ctypes import wintypes
 
 from loguru import logger
 
@@ -87,5 +89,87 @@ class AutoClick:
         win32gui.PostMessage(hwnd, win32con.WM_KEYDOWN, vk_code, 0)
         time.sleep(0.05)
         win32gui.PostMessage(hwnd, win32con.WM_KEYUP, vk_code, 0)
+
+
+class MOUSEINPUT(ctypes.Structure):
+    _fields_ = [
+        ("dx", wintypes.LONG),
+        ("dy", wintypes.LONG),
+        ("mouseData", wintypes.DWORD),
+        ("dwFlags", wintypes.DWORD),
+        ("time", wintypes.DWORD),
+        ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong))
+    ]
+
+
+class INPUT(ctypes.Structure):
+    _fields_ = [("type", wintypes.DWORD), ("mi", MOUSEINPUT)]
+
+
+def click_with_sendinput(hwnd, x, y):
+    """
+    使用SendInput模拟鼠标点击（系统级，100%有效）
+    :param hwnd: 窗口句柄
+    :param x: 窗口相对X坐标
+    :param y: 窗口相对Y坐标
+    """
+    # 获取窗口位置
+    left, top, right, bottom = win32gui.GetWindowRect(hwnd)
+
+    # 计算屏幕绝对坐标
+    screen_x = left + x
+    screen_y = top + y
+
+    # 获取屏幕分辨率
+    screen_width = ctypes.windll.user32.GetSystemMetrics(0)
+    screen_height = ctypes.windll.user32.GetSystemMetrics(1)
+
+    # 转换为SendInput的绝对坐标 (0-65535)
+    abs_x = int(screen_x * 65535 / screen_width)
+    abs_y = int(screen_y * 65535 / screen_height)
+
+    # 鼠标移动
+    mi_move = MOUSEINPUT()
+    mi_move.dx = abs_x
+    mi_move.dy = abs_y
+    mi_move.mouseData = 0
+    mi_move.dwFlags = 0x0001 | 0x8000  # MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE
+    mi_move.time = 0
+    mi_move.dwExtraInfo = None
+
+    input_move = INPUT()
+    input_move.type = 0  # INPUT_MOUSE
+    input_move.mi = mi_move
+
+    # 鼠标左键按下
+    mi_down = MOUSEINPUT()
+    mi_down.dx = 0
+    mi_down.dy = 0
+    mi_down.mouseData = 0
+    mi_down.dwFlags = 0x0002  # MOUSEEVENTF_LEFTDOWN
+    mi_down.time = 0
+    mi_down.dwExtraInfo = None
+
+    input_down = INPUT()
+    input_down.type = 0
+    input_down.mi = mi_down
+
+    # 鼠标左键释放
+    mi_up = MOUSEINPUT()
+    mi_up.dx = 0
+    mi_up.dy = 0
+    mi_up.mouseData = 0
+    mi_up.dwFlags = 0x0004  # MOUSEEVENTF_LEFTUP
+    mi_up.time = 0
+    mi_up.dwExtraInfo = None
+
+    input_up = INPUT()
+    input_up.type = 0
+    input_up.mi = mi_up
+
+    # 发送输入
+    inputs = (INPUT * 3)(input_move, input_down, input_up)
+    ctypes.windll.user32.SendInput(3, inputs, ctypes.sizeof(INPUT))
+
 
 
